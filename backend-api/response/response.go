@@ -6,7 +6,7 @@ import (
 	"github.com/Mangrover007/go-babysteps/backend-api/models"
 )
 
-func BadRequest[T models.ResultType] (w http.ResponseWriter, message string) {
+func BadRequest[T models.ResponseType] (w http.ResponseWriter, message string) error {
 	w.WriteHeader(400)
 	w.Header().Set("Content-Type", "application/json")
 
@@ -17,12 +17,10 @@ func BadRequest[T models.ResultType] (w http.ResponseWriter, message string) {
 	}
 	
 	err := json.NewEncoder(w).Encode(res)
-	if err != nil {
-		panic(err)
-	}
+	return err
 }
 
-func Success[T models.ResultType] (w http.ResponseWriter, result T) {
+func Success[T models.ResponseType] (w http.ResponseWriter, result T) error {
 	w.WriteHeader(200)
 	w.Header().Set("Content-Type", "application/json")
 
@@ -34,9 +32,33 @@ func Success[T models.ResultType] (w http.ResponseWriter, result T) {
 	}
 
 	err := json.NewEncoder(w).Encode(res)
-	if err != nil {
-		panic(err)
+	return err
+}
+
+func NotFound[T models.ResponseType](w http.ResponseWriter, message string) error {
+	w.WriteHeader(http.StatusNotFound)
+	
+	res := models.ResponseBody[T]{
+		Status: http.StatusNotFound,
+		Error: message,
+		Data: nil,
 	}
+
+	err := json.NewEncoder(w).Encode(res)
+	return err
+}
+
+func NotAuthorized[T models.ResponseType](w http.ResponseWriter, message string) error {
+	w.WriteHeader(http.StatusUnauthorized)
+
+	res := models.ResponseBody[T]{
+		Status: http.StatusUnauthorized,
+		Error: message,
+		Data: nil,
+	}
+
+	err := json.NewEncoder(w).Encode(res)
+	return err
 }
 
 // func InternalServerError(w http.ResponseWriter) {

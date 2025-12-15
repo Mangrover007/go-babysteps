@@ -3,15 +3,31 @@ package handlers
 import (
 	"net/http"
 	"encoding/json"
+
 	"github.com/Mangrover007/go-babysteps/backend-api/models"
 	"github.com/Mangrover007/go-babysteps/backend-api/response"
+
+	"log/slog"
+	"time"
+	"os"
+
+	"fmt"
+	"errors"
 )
 
-type AddHandler struct {}
 
-func (_ *AddHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+func AddHandler(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	var StatusCode int
+
+	defer func() {
+		logger.Info("handled request", "StatusCode", StatusCode, "method", r.Method, "path", "/add", "duration", time.Since(start))
+	}()
+
+	if r.Method != http.MethodPost {
 		// any models.ResultType would be ok here I think
+		StatusCode = http.StatusBadRequest
 		response.BadRequest[int](w, "Method must be a POST request")
 		return
 	}
@@ -20,10 +36,20 @@ func (_ *AddHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&body)
 
 	if err != nil {
-		response.BadRequest[int](w, err.Error())
+		var typeError *json.UnmarshalTypeError
+
+		if errors.As(err, &typeError) {
+			fmt.Printf("%w\n", err)
+			StatusCode = http.StatusBadRequest
+			response.BadRequest[int](w, "cannot add strings send NUMBERS")
+			return
+		}
+
+		StatusCode = http.StatusInternalServerError
 		return
 	}
-	
+
+	StatusCode = http.StatusOK
 	response.Success[int](w, body.Num1 + body.Num2)
 }
 

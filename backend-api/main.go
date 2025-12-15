@@ -28,15 +28,33 @@ import (
 	// "fmt"
 	"net/http"
 	"github.com/Mangrover007/go-babysteps/backend-api/handlers"
+	"github.com/Mangrover007/go-babysteps/backend-api/middleware"
 )
 
 func main() {
-	http.Handle("/add", new(handlers.AddHandler))
-	http.HandleFunc("/subtract", handlers.SubtractHandler)
-	http.HandleFunc("/multiply", handlers.MultiplyHandler)
-	http.HandleFunc("/divide", handlers.DivideHandler)
-	http.HandleFunc("/sum", handlers.SumHandler)
-	err := http.ListenAndServe(":3000", nil)
+	
+	app := http.NewServeMux()
+
+	// all unauthorized routes to this guy
+	app.HandleFunc("/login", handlers.Login)
+
+	// authorized app, register authorized routes to this guy
+	authRouter := http.NewServeMux()
+	authRouter.HandleFunc("POST /add", 		handlers.AddHandler)
+	authRouter.HandleFunc("POST /divide", 	handlers.DivideHandler)
+	authRouter.HandleFunc("POST /multiply", handlers.MultiplyHandler)
+	authRouter.HandleFunc("POST /subtract", handlers.SubtractHandler)
+	authRouter.HandleFunc("POST /sum", 		handlers.SumHandler)
+
+	// add app to central router
+	app.Handle("/", middleware.Authorize(authRouter))
+
+	server := http.Server{
+		Addr:		":3000",
+		Handler:	app,
+	}
+
+	err := server.ListenAndServe()
 	if err != nil {
 		panic(err)
 	}
