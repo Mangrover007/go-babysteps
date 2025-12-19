@@ -7,11 +7,12 @@ import (
 	"golang.org/x/net/html"
 	"fmt"
 	"net/url"
+	"errors"
 )
 
 const baseURL string = "https://scrape-me.dreamsofcode.io"
 
-func parsePage(pagelink *url.URL, linkchan chan<- *url.URL) {
+func getPage(pagelink *url.URL) []byte {
 	page, err := http.Get(pagelink.String())
 	if err != nil {
 		panic(err)
@@ -19,7 +20,7 @@ func parsePage(pagelink *url.URL, linkchan chan<- *url.URL) {
 
 	if page.StatusCode >= http.StatusBadRequest {
 		fmt.Printf("%s is a dead link\n", pagelink.String())
-		return
+		return []byte("")
 	}
 
 	defer page.Body.Close()
@@ -28,6 +29,29 @@ func parsePage(pagelink *url.URL, linkchan chan<- *url.URL) {
 	if err != nil {
 		panic(err)
 	}
+
+	return body
+}
+
+func parseAnchor(attributes []html.Attribute) (*url.URL, error) {
+	for _, val := range attributes {
+		if val.Key == "href" {
+			if val.Val[0:1] == "/" {
+				link, _ := url.Parse(baseURL + val.Val)
+				return link, nil
+			} else {
+				link, _ := url.Parse(val.Val)
+				return link, nil
+			}
+			break
+		}
+	}
+
+	return nil, errors.New("no href in this wtf?")
+}
+
+func parsePage(pagelink *url.URL, linkchan chan<- *url.URL) {
+	body := getPage(pagelink)
 
 	r := strings.NewReader(string(body))
 	z := html.NewTokenizer(r)
@@ -41,17 +65,11 @@ func parsePage(pagelink *url.URL, linkchan chan<- *url.URL) {
 		case tt == html.StartTagToken:
 			t := z.Token()
 			if t.Data == "a" {
-				for _, val := range t.Attr {
-					if val.Key == "href" {
-						if val.Val[0:1] == "/" {
-							link, _ := url.Parse(baseURL + val.Val)
-							linkchan <- link
-						} else {
-							link, _ := url.Parse(val.Val)
-							linkchan <- link
-						}
-						break
-					}
+				link, err := parseAnchor(t.Attr)
+				if err != nil {
+					return
+				} else {
+					linkchan <- link
 				}
 			}
 			break
@@ -76,7 +94,6 @@ func main() {
 			visited[link.String()] = true
 			go parsePage(link, linkchan)
 		}
-		// fmt.Println(link.String())
 	}
 }
 
